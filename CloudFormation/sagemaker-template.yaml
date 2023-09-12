@@ -1,0 +1,81 @@
+Description: "Basic Hosting entities test.  We need models to create endpoint configs."
+Parameters:
+  ProjectName:
+    Type: String
+    Default: fastchat-sm
+  ModelID:
+    Type: String
+    Default: tiiuae/falcon-7b
+  InstanceType:
+    Type: String
+    Default: ml.g5.2xlarge
+    
+Resources:
+  Endpoint:
+    Type: "AWS::SageMaker::Endpoint"
+    Properties:
+      EndpointName: !Sub "${ProjectName}-endpoint"
+      EndpointConfigName:
+        !GetAtt EndpointConfig.EndpointConfigName
+  EndpointConfig:
+    Type: "AWS::SageMaker::EndpointConfig"
+    Properties:
+      EndpointConfigName: !Sub "${ProjectName}-endpoint-config"
+      ProductionVariants:
+        - InitialInstanceCount: 1
+          InitialVariantWeight: 1.0
+          InstanceType: !Ref InstanceType
+          ModelName: !GetAtt Model.ModelName
+          VariantName: !GetAtt Model.ModelName
+  Model:
+    Type: "AWS::SageMaker::Model"
+    Properties:
+      ModelName: !Sub "${ProjectName}-model"
+      PrimaryContainer:
+        Image: 
+          !Sub "763104351884.dkr.ecr.${AWS::Region}.amazonaws.com/huggingface-pytorch-tgi-inference:2.0.0-tgi0.8.2-gpu-py39-cu118-ubuntu20.04"
+        Environment:
+          HF_MODEL_ID: !Ref ModelID
+          SM_NUM_GPUS: "1"
+          MAX_INPUT_LENGTH: "3000"
+          MAX_TOTAL_TOKENS: "6000"
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+
+  ExecutionRole: 
+    Type: "AWS::IAM::Role"
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Principal: 
+              Service: 
+                - "sagemaker.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies: 
+        - 
+          PolicyName: "SageMakerModelPermissions"
+          PolicyDocument: 
+            Version: "2012-10-17"
+            Statement: 
+              - 
+                Effect: "Allow"
+                Action:
+                  - "cloudwatch:PutMetricData"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:CreateLogGroup"
+                  - "logs:DescribeLogStreams"
+                  - "s3:GetObject"
+                  - "s3:ListBucket"
+                  - "ecr:GetAuthorizationToken"
+                  - "ecr:BatchCheckLayerAvailability"
+                  - "ecr:GetDownloadUrlForLayer"
+                  - "ecr:BatchGetImage"
+                Resource: "*"
+Outputs:
+  EndpointName:
+    Value: !GetAtt Endpoint.EndpointName

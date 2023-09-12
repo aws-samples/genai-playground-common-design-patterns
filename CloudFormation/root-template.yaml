@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  This template creates the infrastructure required to deploy Gen AI chat agent powered by SageMaker and ECS
+Parameters:
+  ProjectName:
+    AllowedPattern: '[A-Za-z0-9-]{1,16}'
+    ConstraintDescription: >-
+      Maximum of 22 alphanumeric characters. Can include hyphens (-), but not
+      spaces. Must be unique within your account in an AWS Region.
+    Description: Project Name used to identify your resources
+    MaxLength: '16'
+    MinLength: '1'
+    Type: String
+    Default: fastchat-sm
+  VpcCIDR:
+    Type: String
+    Default: 10.2.0.0/16
+  PublicSubnetCIDRA:
+    Type: String
+    Default: 10.2.0.0/24
+  PrivateSubnetCIDRA:
+    Type: String
+    Default: 10.2.2.0/24
+  PublicSubnetCIDRB:
+    Type: String
+    Default: 10.2.3.0/24
+  PrivateSubnetCIDRB:
+    Type: String
+    Default: 10.2.1.0/24
+  ECRRepoName:
+    Type: String
+    Default: fastchat-sm
+  S3ConvTemplates:
+    Type: String
+    Default: s3://stam-gai-playground-dev/sagemaker-fastchat/templates/falcon7b-instruct.json
+  ConvBucket:
+    Type: String
+    Default: stam-gai-playground-dev
+  ConvPrefix:
+    Type: String
+    Default: sagemaker-fastchat/conv-logs
+  WebUIMode:
+    Type: String
+    Default: "single"
+  DDBTableName:
+    Type: String
+  Certificate:
+    Type: String
+    # Update with the certificate ARN from Certificate Manager, which must exist in the same region.
+    Default: 'arn:aws:acm:region:123456789012:certificate/00000000-0000-0000-0000-000000000000'
+  VPCTemplate:
+    Type: String
+    Default: https://stam-gai-playground-dev.s3.us-west-2.amazonaws.com/sagemaker-fastchat/CFN/vpc-template.yaml
+  FastChatemplate:
+    Type: String
+    Default: https://stam-gai-playground-dev.s3.us-west-2.amazonaws.com/sagemaker-fastchat/CFN/fastchat-template.yaml
+Resources:
+  VPCStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: !Ref VPCTemplate
+      Parameters:
+        ProjectName: !Ref ProjectName
+        VpcCIDR: !Ref VpcCIDR
+        PublicSubnetCIDRA: !Ref PublicSubnetCIDRA
+        PrivateSubnetCIDRA: !Ref PrivateSubnetCIDRA
+        PublicSubnetCIDRB: !Ref PublicSubnetCIDRB
+        PrivateSubnetCIDRB: !Ref PrivateSubnetCIDRB
+  FastChatStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: !Ref FastChatTemplate
+      Parameters:
+        ProjectName: !Ref ProjectName
+        VPC: !GetAtt VPCStack.Outputs.VpcID
+        PublicSubnetA: !GetAtt VPCStack.Outputs.PublicSubnetA
+        PublicSubnetB: !GetAtt VPCStack.Outputs.PublicSubnetB
+        PrivateSubnetA: !GetAtt VPCStack.Outputs.PrivateSubnetA
+        PrivateSubnetB: !GetAtt VPCStack.Outputs.PrivateSubnetB
+        WebUIImage: 
+          !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/fastchat-sm:webui"
+        WorkerImage: 
+          !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/fastchat-sm:worker"
+        GradioServerPort: 8001
+        S3ConvTemplates: !Ref S3ConvTemplates
+        ConvBucket: !Ref ConvBucket
+        ConvPrefix: !Ref ConvPrefix
+        WebUIMode: !Ref WebUIMode
+        Certificate: !Ref Certificate
+        WorkerPort: 21002
+        DDBTableName: !Ref DDBTableName
+Outputs:
+  DNSName: 
+    Value: !GetAtt FastChatStack.Outputs.ALBDNSName
+
+

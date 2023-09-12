@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  fastchat-model-worker:
+    environment:
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-west-2}
+      AWS_REGION: ${AWS_REGION:-us-west-2}
+    image: ${FS_WORKER_IMAGE}
+    entrypoint: ["python3.9", "/root/sagemaker-fastchat/serve/sagemaker_model_worker.py", "--model-path", "${FASTCHAT_WORKER_MODEL_PATH:-lmsys/vicuna-7b-v1.3}", "--host", "0.0.0.0", "--port", "21002", "--ddb-table-name", "${DDB_TABLE_NAME}"]
+  fastchat-gradio-server:
+    environment:
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-west-2}
+      AWS_REGION: ${AWS_REGION:-us-west-2}
+    image: ${FS_WEBUI_IMAGE}
+    depends_on:
+          condition: service_started
+    ports:
+      - "8001:8001"
+    entrypoint: ["python3.9", "/root/sagemaker-fastchat/serve/sagemaker_gradio_web_server.py", "--host", "0.0.0.0", "--port", "8001", "--model-list-mode", "reload", "--conv-template", "${FS_CONV_TEMPLATE}", "--ddb-table-name", "${DDB_TABLE_NAME}","--conv-bucket","${CONV_BUCKET}","--conv-prefix", "${CONV_PREFIX}","--mode", "${FS_UI_MODE}"]
