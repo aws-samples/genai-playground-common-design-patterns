@@ -33,7 +33,11 @@ from fastchat.constants import (
     MODERATION_MSG,
     INPUT_CHAR_LEN_LIMIT,
 )
-from fastchat.conversation import Conversation
+from fastchat.model.model_adapter import (
+    BaseModelAdapter,
+    model_adapters
+)
+from fastchat.conversation import Conversation, get_conv_template
 import fastchat
 from gradio_block_arena_named import (
     build_side_by_side_ui_named,
@@ -498,6 +502,18 @@ def get_model_list(ddb_table_name):
         }
     )["Item"]["model_names"]["S"].split(",")
 
+class ClaudeAdapter(BaseModelAdapter):
+    """The model adapter for Claude"""
+
+    def match(self, model_path: str):
+        return model_path in ["anthropic.claude-v2", "anthropic.claude-instant-v1", "anthropic.claude-v1"]
+
+    def load_model(self, model_path: str, from_pretrained_kwargs: dict):
+        raise NotImplementedError()
+
+    def get_default_conv_template(self, model_path: str) -> Conversation:
+        return get_conv_template("claude")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", type=str, default="0.0.0.0")
@@ -557,6 +573,7 @@ if __name__ == "__main__":
     worker_addr = args.worker_address
 
     load_templates_from_s3(args.conv_templates)
+    fastchat.model.model_adapter.model_adapters.append(ClaudeAdapter())
 
     # Set global variables
     set_global_vars(
