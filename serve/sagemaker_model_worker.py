@@ -27,38 +27,10 @@ from fastchat.serve.model_worker import (
     create_background_tasks
 )
 import fastchat
+from importlib import import_module
 
 
-class StreamIterator:
-    def __init__(self, stream):
-        self.byte_iterator = iter(stream)
-        self.buffer = io.BytesIO()
-        self.read_pos = 0
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        while True:
-            self.buffer.seek(self.read_pos)
-            line = self.buffer.readline()
-            if line and line[-1] == 10:
-                self.read_pos += len(line)
-                return line[:-1]
-            try:
-                chunk = next(self.byte_iterator)
-            except StopIteration:
-                if self.read_pos < self.buffer.getbuffer().nbytes:
-                    continue
-                raise
-            if 'PayloadPart' not in chunk:
-                print("Unknown event type:" + chunk)
-                continue
-            self.buffer.seek(0, io.SEEK_END)
-            self.buffer.write(chunk['PayloadPart']['Bytes'])
-
-
-class SageMakerModelWorker(BaseModelWorker):
+class ModelWorker(BaseModelWorker):
     def __init__(
         self,
         ddb_table_name: str,
@@ -81,10 +53,7 @@ class SageMakerModelWorker(BaseModelWorker):
             conv_template
         )
 
-        logger.info("Starting SageMaker model worker...")
-        sm_runtime = boto3.client("sagemaker-runtime")
-        self.invoke = sm_runtime.invoke_endpoint_with_response_stream
-
+        logger.info("Starting model worker...")
         logger.info(f"Loading the model {self.model_names} on worker {worker_id} ...")
         self.http = urllib3.PoolManager()
         self.serving_port = 8080
@@ -99,7 +68,7 @@ class SageMakerModelWorker(BaseModelWorker):
             }
         )["Item"]["model_names"]["S"].split(",")
 
-    def invoke_sagemaker_endpoint(self, params):
+    def invoke_model(self, params):
         if params["top_p"] == 0:
             params["top_p"] = 0.01
         elif params["top_p"] == 1.0:
@@ -114,17 +83,14 @@ class SageMakerModelWorker(BaseModelWorker):
         )
 
         response = self.invoke(
-            EndpointName=self.sagemaker_endpoint_name,
-            Body=json.dumps(body).encode("utf-8"),
-            ContentType="application/json"
-        )["Body"]
+            body=body
+        )
         if isinstance(response, urllib3.response.HTTPResponse):
             if response.getheader("content-type") == "text/event-stream":
                 output = response.stream()
         elif isinstance(response, StreamingBody) or isinstance(response, EventStream):
             output = response
         else:
-            print(type(response))
             output = response.read()
         return output
 
@@ -139,6 +105,8 @@ class SageMakerModelWorker(BaseModelWorker):
         res = None
         if regex_sub:
             res = json.loads(re.sub(regex_sub, "", response_body))
+        else:
+            res = json.loads(response_body)
         ret = {}
         for attrib, jpath in mapping.items():
             jsonpath_expr = parse(jpath)
@@ -162,8 +130,14 @@ class SageMakerModelWorker(BaseModelWorker):
             )
         if "response" not in json_config.keys() or "request" not in json_config.keys():
             raise ValueError("Worker config file must container 'request' and 'response' keys.")
+        model_family = resp["model_family"]["S"]
+        if model_family == "sagemaker":
+            model_name_ =  resp["endpoint_name"]["S"]
+        else:
+            model_name_ = model_name        
+        self.invoke = import_module("handlers." + model_family).model(model_name_).invoke
+        self.stream_iterator = import_module("handlers." + model_family).StreamIterator
         return (
-            resp["endpoint_name"]["S"],
             json_config["request"],
             json_config["response"]
         )
@@ -172,14 +146,13 @@ class SageMakerModelWorker(BaseModelWorker):
         self.call_ct += 1
         model_name = params["model"]
         (
-            self.sagemaker_endpoint_name,
             self.request,
             self.response
         ) = self.get_model_config(model_name)
 
         try:
             text = ""
-            for line in StreamIterator(self.invoke_sagemaker_endpoint(params)):
+            for line in self.stream_iterator(self.invoke_model(params)):
                 if line:
                     output = self.parse_response(
                         line.decode("utf-8"),
@@ -255,7 +228,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     logger.info(f"args: {args}")
 
-    worker = SageMakerModelWorker(
+    worker = ModelWorker(
         args.ddb_table_name,
         worker_id,
         args.model_path,
