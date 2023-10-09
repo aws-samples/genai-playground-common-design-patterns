@@ -68,7 +68,7 @@ class ModelWorker(BaseModelWorker):
             }
         )["Item"]["model_names"]["S"].split(",")
 
-    def invoke_model(self, params):
+    def invoke_model(self, params, request_form):
         if params["top_p"] == 0:
             params["top_p"] = 0.01
         elif params["top_p"] == 1.0:
@@ -78,8 +78,8 @@ class ModelWorker(BaseModelWorker):
 
         body = self.form_request(
             params,
-            self.request["defaults"],
-            self.request["mapping"]
+            request_form["defaults"],
+            request_form["mapping"]
         )
 
         response = self.invoke(
@@ -146,18 +146,18 @@ class ModelWorker(BaseModelWorker):
         self.call_ct += 1
         model_name = params["model"]
         (
-            self.request,
-            self.response
+            request_form,
+            response_form
         ) = self.get_model_config(model_name)
 
         try:
             text = ""
-            for line in self.stream_iterator(self.invoke_model(params)):
+            for line in self.stream_iterator(self.invoke_model(params, request_form)):
                 if line:
                     output = self.parse_response(
                         line.decode("utf-8"),
-                        self.response["mapping"],
-                        self.response["regex_sub"]
+                        response_form["mapping"],
+                        response_form["regex_sub"]
                     )
                     if "error" in output:
                         raise ValueError(output)

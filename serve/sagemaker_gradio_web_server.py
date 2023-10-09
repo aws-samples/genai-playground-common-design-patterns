@@ -16,7 +16,6 @@ from fastchat.serve.gradio_web_server import (
     logger,
     enable_moderation,
     block_css,
-    get_model_description_md,
     flag_last_response,
     ip_expiration_dict,
     disable_btn,
@@ -184,6 +183,8 @@ def clear_history(request: gr.Request):
     logger.info(f"clear_history. ip: {request.client.host}")
     state = None
     load_templates_from_s3(conv_templates)
+    ip = request.client.host
+    ip_expiration_dict[ip] = time.time() + SESSION_EXPIRATION_TIME
     return (state, [], "") + (disable_btn,) * 5
 
 
@@ -196,8 +197,7 @@ def build_single_model_ui(models):
 """
 
     state = gr.State()
-    model_description_md = get_model_description_md(models)
-    gr.Markdown(notice_markdown + model_description_md, elem_id="notice_markdown")
+    gr.Markdown(notice_markdown, elem_id="notice_markdown")
 
     with gr.Row(elem_id="model_selector_row"):
         model_selector = gr.Dropdown(
