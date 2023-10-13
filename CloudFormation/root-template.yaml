@@ -51,7 +51,7 @@ Parameters:
   VPCTemplate:
     Type: String
     Default: https://stam-gai-playground-dev.s3.us-west-2.amazonaws.com/sagemaker-fastchat/CFN/vpc-template.yaml
-  FastChatemplate:
+  FastChatTemplate:
     Type: String
     Default: https://stam-gai-playground-dev.s3.us-west-2.amazonaws.com/sagemaker-fastchat/CFN/fastchat-template.yaml
 Resources:
