@@ -4,7 +4,7 @@ FastChat based chat agent powered by SageMaker real-time Inference
 
 ## Architecture
 
-![Achitecture](./Assets/sagemaker-fastchat.png)
+![Achitecture](./Assets/GenAI-play-ground.drawio.png)
 The Solution Architecture is made up of the following main components:
 - Amazon VPC with private subnet.
 - Amazon Elastic Container Registry (ECR) used to store fastchat service docker image.
