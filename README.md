@@ -3,8 +3,12 @@ FastChat based chat agent powered by SageMaker real-time Inference
 ![Fastchat Arena](Assets/arena.gif)
 
 ## Architecture
-
+The following is the common GenAI chatbot design pattern generally been used. 
 ![Achitecture](./Assets/GenAI-play-ground.drawio.png)
+
+In this example, we have simplied the architecture design and combined some of the components in the above diagram. The high-level architecture of this github repo can be shown as below:
+![Achitecture](./Assets/sagemaker-fastchat.png)
+
 The Solution Architecture is made up of the following main components:
 - Amazon VPC with private subnet.
 - Amazon Elastic Container Registry (ECR) used to store fastchat service docker image.
