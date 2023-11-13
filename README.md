@@ -3,7 +3,14 @@ FastChat based chat agent powered by SageMaker real-time Inference
 ![Fastchat Arena](Assets/arena.gif)
 
 ## Architecture
-The following is the common GenAI chatbot design pattern generally been used. 
+The following is the common GenAI chatbot design pattern we identified. A few components can be reused cross different GenAI solutions:
+- LLM API abstraction layer: the LLM API abstraction layer provides a standardized way to access different LLMs. For example, by using the DynamoDB to register the metadata of different LLM invocation parameters, users can simply use the same api contract and specifying the model name to be able to make invocations against supported LLMs. This way, the platform team has better control and governance of the LLM usage within your organization.
+- Prompt service: this is the new requirements for GenAI solutions. Different LLMs and business use cases require different prompt templates. The prompt service will help the different GenAI projects and teams to manage and consume prompt template in a more organised way.
+- Orchestration layer: this is the main logic designed for the specific GenAI use case. For different GenAI projects, this orchestration logic will need to be redesigned, but the infrustracture/service used to host the orchestration logic can be reused.
+- UI layer: most GenAI solutions provide the UI for user interaction. This layer can be reused for different projects by updating the UI design, but the underlying services can stay the same.
+- Feedback system: this is a common requirements for GenAI solutions for continous model performance monitoring and feedback collection. The results can be used to fine-tune the model or identify the needs to update the overall solution.
+- RAG: for most Q&A solutions powered by LLM, RAG function is needed to provide domain knowledge and imporve LLM performance. Users can select different RAG implementation and share the RAG service cross different GenAI use cases.
+- Cache layer: this module can be optional, but it helps to save cost by matching the cached answers for similar questions that have been asked before. Please note that, based on the design of the cache hit, it can also impact the accuracy of the Q&A solution as the solution will not invoke the LLM for every query it receives. 
 ![Achitecture](./Assets/GenAI-play-ground.drawio.png)
 
 In this example, we have simplied the architecture design and combined some of the components in the above diagram. The high-level architecture of this github repo can be shown as below:
